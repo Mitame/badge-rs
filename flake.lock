@@ -38,11 +38,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1653060744,
-        "narHash": "sha256-kfRusllRumpt33J1hPV+CeCCylCXEU7e0gn2/cIM7cY=",
+        "lastModified": 1653407748,
+        "narHash": "sha256-g9puJaILRTb9ttlLQ7IehpV7Wcy0n+vs8LOFu6ylQcM=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "dfd82985c273aac6eced03625f454b334daae2e8",
+        "rev": "5ce6597eca7d7b518c03ecda57d45f9404b5e060",
         "type": "github"
       },
       "original": {
@@ -52,11 +52,30 @@
         "type": "github"
       }
     },
+    "openocd-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1653123822,
+        "narHash": "sha256-oUx5ZEcwZBWVzmnrLKv2M4+Y//d4ineXAJxMwqpu/yo=",
+        "ref": "master",
+        "rev": "0a36acbf6ac67cf6e95077aa25a001e2638f2798",
+        "revCount": 9576,
+        "submodules": true,
+        "type": "git",
+        "url": "git://git.code.sf.net/p/openocd/code"
+      },
+      "original": {
+        "submodules": true,
+        "type": "git",
+        "url": "git://git.code.sf.net/p/openocd/code"
+      }
+    },
     "root": {
       "inputs": {
         "mozillapkgs": "mozillapkgs",
         "naersk": "naersk",
         "nixpkgs": "nixpkgs",
+        "openocd-src": "openocd-src",
         "utils": "utils"
       }
     },

@@ -16,8 +16,14 @@
       url = "github:mozilla/nixpkgs-mozilla";
       flake = false;
     };
+    openocd-src = {
+      url = "git://git.code.sf.net/p/openocd/code";
+      flake = false;
+      type = "git";
+      submodules = true;
+    };
   };
-  outputs = { self, nixpkgs, utils, naersk, mozillapkgs }:
+  outputs = { self, nixpkgs, utils, naersk, mozillapkgs, openocd-src }:
     utils.lib.eachDefaultSystem (system:
       let
         mozilla = pkgs.callPackage (mozillapkgs + "/package-set.nix") { };
@@ -64,6 +70,23 @@
             udev
           ];
         };
+        # Use openocd from git, because we want the pico-debug config
+        packages.openocd = pkgs.openocd.overrideAttrs (old: {
+          configureFlags = old.configureFlags ++ [ "--enable-cmsis-dap" ];
+          src = openocd-src;
+          nativeBuildInputs = old.nativeBuildInputs ++ (with pkgs; [
+            which
+            libtool
+            autoconf
+            automake
+            git
+          ]);
+          patchPhase = ''
+            git init
+            ./bootstrap
+          '';
+          patches = [ ];
+        });
         # defaultPackage = packages.my-project;
 
         # `nix run`
@@ -76,6 +99,8 @@
         devShell = pkgs.mkShell {
           nativeBuildInputs = [
             pkgs.pre-commit
+            pkgs.gcc-arm-embedded
+            packages.openocd
             rust
             packages.flip-link
             packages.elf2uf2-rs
