@@ -11,7 +11,7 @@ use cortex_m::prelude::*;
 use cortex_m_semihosting::*;
 use embedded_hal::digital::v2::{InputPin, OutputPin};
 
-mod register;
+pub mod register;
 
 use self::register::*;
 
@@ -191,7 +191,7 @@ where
         self.busy_wait();
     }
 
-    pub fn command<'a, I: IntoIterator<Item = &'a u8>>(&mut self, command: u8, data: I) {
+    pub fn command<I: IntoIterator<Item = u8>>(&mut self, command: u8, data: I) {
         let _pins = self.pins.get_write_pins();
         self.cs_pin.set_low().unwrap();
 
@@ -205,7 +205,7 @@ where
             self.dc_pin.set_high().unwrap();
 
             use embedded_hal::blocking::spi::WriteIter;
-            self.spi.write_iter(data.map(|b| *b)).unwrap();
+            self.spi.write_iter(data).unwrap();
         }
         self.cs_pin.set_high().unwrap();
     }
@@ -252,10 +252,13 @@ where
         // LUT_VCOM = 0x20,
         self.command(
             0x20,
-            &[
-                0x00, 0x64, 0x64, 0x37, 0x00, 0x01, 0x00, 0x8c, 0x8c, 0x00, 0x00, 0x04, 0x00, 0x64,
-                0x64, 0x37, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            [
+                0x00, 0x64, 0x64, 0x37, 0x00, 0x01, 0x00,
+                0x8c, 0x8c, 0x00, 0x00, 0x04, 0x00, 0x64,
+                0x64, 0x37, 0x00, 0x01, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                 0x00, 0x00,
             ],
         );
@@ -263,7 +266,7 @@ where
         // LUT_WW   = 0x21,
         self.command(
             0x21,
-            &[
+            [
                 0x54, 0x64, 0x64, 0x37, 0x00, 0x01, 0x60, 0x8c, 0x8c, 0x00, 0x00, 0x04, 0xa8, 0x64,
                 0x64, 0x37, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -273,7 +276,7 @@ where
         // LUT_BW   = 0x22,
         self.command(
             0x22,
-            &[
+            [
                 0x54, 0x64, 0x64, 0x37, 0x00, 0x01, 0x60, 0x8c, 0x8c, 0x00, 0x00, 0x04, 0xa8, 0x64,
                 0x64, 0x37, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -283,7 +286,7 @@ where
         // LUT_WB   = 0x23,
         self.command(
             0x23,
-            &[
+            [
                 0xa8, 0x64, 0x64, 0x37, 0x00, 0x01, 0x60, 0x8c, 0x8c, 0x00, 0x00, 0x04, 0x54, 0x64,
                 0x64, 0x37, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -293,12 +296,216 @@ where
         // LUT_BB   = 0x24,
         self.command(
             0x24,
-            &[
+            [
                 0xa8, 0x64, 0x64, 0x37, 0x00, 0x01, 0x60, 0x8c, 0x8c, 0x00, 0x00, 0x04, 0x54, 0x64,
                 0x64, 0x37, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             ],
         );
+
+        self.pll_control(PllClockFrequency::_100Hz);
+
+        self.busy_wait();
+    }
+
+    fn turbo_luts(&mut self) {
+        // 0x3c, 0x00, 0x2b, 0x2b, 0x24, 0x1a, ????
+        self.command(0x20, [
+          0x00, 0x01, 0x01, 0x02, 0x00, 0x01,
+          0x00, 0x02, 0x02, 0x00, 0x00, 0x02,
+          0x00, 0x02, 0x02, 0x03, 0x00, 0x02,
+          0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x00, 0x00
+        ]);
+
+        self.command(0x21, [
+          0x54, 0x01, 0x01, 0x02, 0x00, 0x01,
+          0x60, 0x02, 0x02, 0x00, 0x00, 0x02,
+          0xa8, 0x02, 0x02, 0x03, 0x00, 0x02,
+          0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+        ]);
+
+        self.command(0x22, [
+          0x54, 0x01, 0x01, 0x02, 0x00, 0x01,
+          0x60, 0x02, 0x02, 0x00, 0x00, 0x02,
+          0xa8, 0x02, 0x02, 0x03, 0x00, 0x02,
+          0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+        ]);
+
+        self.command(0x23, [
+          0xa8, 0x01, 0x01, 0x02, 0x00, 0x01,
+          0x60, 0x02, 0x02, 0x00, 0x00, 0x02,
+          0x54, 0x02, 0x02, 0x03, 0x00, 0x02,
+          0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+        ]);
+
+        self.command(0x24, [
+          0xa8, 0x01, 0x01, 0x02, 0x00, 0x01,
+          0x60, 0x02, 0x02, 0x00, 0x00, 0x02,
+          0x54, 0x02, 0x02, 0x03, 0x00, 0x02,
+          0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+        ]);
+
+        self.pll_control(PllClockFrequency::_200Hz);
+
+        self.busy_wait();
+    }
+
+    fn custom_luts(&mut self) {
+        self.command(constant::VCOM_LUT, [
+          0x00, 0x01, 0x01, 0x02, 0x00, 0x01,
+          0x00, 0x02, 0x02, 0x00, 0x00, 0x02,
+          0x00, 0x02, 0x02, 0x03, 0x00, 0x02,
+          0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x00, 0x00
+        ]);
+
+        let lut_setting_group_white = LutSettingGroup([
+            LutSetting {
+                level_select_1: LevelSelection::Vdh,
+                level_select_2: LevelSelection::Vdh,
+                level_select_3: LevelSelection::Vdh,
+                level_select_4: LevelSelection::Gnd,
+                number_of_frames_1: 1,
+                number_of_frames_2: 1,
+                number_of_frames_3: 2,
+                number_of_frames_4: 0,
+                times_to_repeat: 1,
+            },
+            LutSetting {
+                level_select_1: LevelSelection::Vdh,
+                level_select_2: LevelSelection::Vdl,
+                level_select_3: LevelSelection::Gnd,
+                level_select_4: LevelSelection::Gnd,
+                number_of_frames_1: 2,
+                number_of_frames_2: 2,
+                number_of_frames_3: 0,
+                number_of_frames_4: 0,
+                times_to_repeat: 2,
+            },
+            LutSetting {
+                level_select_1: LevelSelection::Vdl,
+                level_select_2: LevelSelection::Vdl,
+                level_select_3: LevelSelection::Vdl,
+                level_select_4: LevelSelection::Gnd,
+                number_of_frames_1: 2,
+                number_of_frames_2: 2,
+                number_of_frames_3: 3,
+                number_of_frames_4: 0,
+                times_to_repeat: 2,
+            },
+            Default::default(),
+            Default::default(),
+            Default::default(),
+            Default::default(),
+        ]);
+
+        let lut_setting_group_black = LutSettingGroup([
+            LutSetting {
+                level_select_1: LevelSelection::Vdl,
+                level_select_2: LevelSelection::Vdl,
+                level_select_3: LevelSelection::Vdl,
+                level_select_4: LevelSelection::Gnd,
+                number_of_frames_1: 1,
+                number_of_frames_2: 1,
+                number_of_frames_3: 2,
+                number_of_frames_4: 0,
+                times_to_repeat: 1,
+            },
+            LutSetting {
+                level_select_1: LevelSelection::Vdl,
+                level_select_2: LevelSelection::Vdh,
+                level_select_3: LevelSelection::Gnd,
+                level_select_4: LevelSelection::Gnd,
+                number_of_frames_1: 2,
+                number_of_frames_2: 2,
+                number_of_frames_3: 0,
+                number_of_frames_4: 0,
+                times_to_repeat: 2,
+            },
+            LutSetting {
+                level_select_1: LevelSelection::Vdh,
+                level_select_2: LevelSelection::Vdh,
+                level_select_3: LevelSelection::Vdh,
+                level_select_4: LevelSelection::Gnd,
+                number_of_frames_1: 2,
+                number_of_frames_2: 2,
+                number_of_frames_3: 3,
+                number_of_frames_4: 0,
+                times_to_repeat: 2,
+            },
+            Default::default(),
+            Default::default(),
+            Default::default(),
+            Default::default(),
+        ]);
+
+        // self.command(constant::W2W_LUT, [
+        //   0x54, 0x01, 0x01, 0x02, 0x00, 0x01,
+        //   0x60, 0x02, 0x02, 0x00, 0x00, 0x02,
+        //   0xa8, 0x02, 0x02, 0x03, 0x00, 0x02,
+        //   0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        //   0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        //   0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        //   0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+        // ]);
+
+        self.w2w_lut(lut_setting_group_white.clone());
+
+        // self.command(constant::B2W_LUT, [
+        //   0x54, 0x01, 0x01, 0x02, 0x00, 0x01,
+        //   0x60, 0x02, 0x02, 0x00, 0x00, 0x02,
+        //   0xa8, 0x02, 0x02, 0x03, 0x00, 0x02,
+        //   0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        //   0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        //   0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        //   0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+        // ]);
+
+        self.b2w_lut(lut_setting_group_white.clone());
+
+        // self.command(constant::W2B_LUT, [
+        //   0xa8, 0x01, 0x01, 0x02, 0x00, 0x01,
+        //   0x60, 0x02, 0x02, 0x00, 0x00, 0x02,
+        //   0x54, 0x02, 0x02, 0x03, 0x00, 0x02,
+        //   0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        //   0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        //   0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        //   0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+        // ]);
+
+        self.w2b_lut(lut_setting_group_black.clone());
+
+        // self.command(constant::B2B_LUT, [
+        //   0xa8, 0x01, 0x01, 0x02, 0x00, 0x01,
+        //   0x60, 0x02, 0x02, 0x00, 0x00, 0x02,
+        //   0x54, 0x02, 0x02, 0x03, 0x00, 0x02,
+        //   0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        //   0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        //   0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        //   0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+        // ]);
+        self.b2b_lut(lut_setting_group_black.clone());
+
+        self.pll_control(PllClockFrequency::_200Hz);
 
         self.busy_wait();
     }
@@ -308,7 +515,7 @@ where
 
         self.panel_setting(PanelSetting {
             resolution: Resolution::Res129x296,
-            lut_selection: LutSelection::FromOtp,
+            lut_selection: LutSelection::FromRegister,
             colour_selection: ColourSelection::BlackWhite,
             source_shift_direction: SourceShiftDirection::Right,
             booster_enable: BoosterEnable::On,
@@ -317,6 +524,7 @@ where
         });
 
         self.default_luts();
+        // self.turbo_luts();
 
         self.power_setting(PowerSetting {
             source_power: PowerSelection::Internal,
@@ -350,79 +558,101 @@ where
 
         self.power_off_sequence_setting(PowerOffSequence::Frame1);
         // TSE
-        self.command(0x41, &[0x00]);
+        self.command(0x41, [0x00]);
         // TCON
-        self.command(0x60, &[0x22]);
+        self.command(0x60, [0x22]);
         // CDI
-        self.command(0x50, &[0b01_00_1100]);
+        self.command(0x50, [0b01_00_1100]);
 
-        self.pll_control(PllClockFrequency::_100Hz);
+        // self.pll_control(PllClockFrequency::_100Hz);
         // self.power_off();
     }
 
     pub fn panel_setting(&mut self, setting: PanelSetting) {
         let setting_bytes: [u8; 1] = setting.into();
-        self.command(constant::PANEL_SETTING, &setting_bytes);
+        self.command(constant::PANEL_SETTING, setting_bytes);
     }
 
     pub fn power_setting(&mut self, setting: PowerSetting) {
         let setting_bytes: [u8; 5] = setting.into();
-        self.command(constant::POWER_SETTING, &setting_bytes);
+        self.command(constant::POWER_SETTING, setting_bytes);
     }
 
     pub fn power_off(&mut self) {
-        self.command(constant::POWER_OFF, &[]);
+        self.command(constant::POWER_OFF, []);
     }
 
     pub fn power_off_sequence_setting(&mut self, setting: PowerOffSequence) {
         let setting_bytes: [u8; 1] = setting.into();
-        self.command(constant::POWER_OFF_SEQUENCE_SETTINGS, &setting_bytes);
+        self.command(constant::POWER_OFF_SEQUENCE_SETTINGS, setting_bytes);
     }
 
     pub fn power_on(&mut self, blocking: bool) {
-        self.command(constant::POWER_ON, &[]);
+        self.command(constant::POWER_ON, []);
         if blocking {
             self.busy_wait();
         }
     }
 
     pub fn power_on_measure(&mut self) {
-        self.command(constant::POWER_ON_MEASURE, &[]);
+        self.command(constant::POWER_ON_MEASURE, []);
     }
 
     pub fn booster_soft_start(&mut self, setting: BoosterSoftStart) {
         let setting_bytes: [u8; 3] = setting.into();
-        self.command(constant::BOOSTER_SOFT_START, &setting_bytes);
+        self.command(constant::BOOSTER_SOFT_START, setting_bytes);
     }
 
     pub fn deep_sleep(&mut self) {
-        self.command(constant::DEEP_SLEEP, &[0xA5]);
+        self.command(constant::DEEP_SLEEP, [0xA5]);
     }
 
-    pub fn data_start_transmission_1<'a, I: IntoIterator<Item = &'a u8>>(&mut self, data: I) {
+    pub fn data_start_transmission_1<I: IntoIterator<Item = u8>>(&mut self, data: I) {
         self.command(constant::DISPLAY_START_TRANSMISSION_1, data)
     }
 
     pub fn data_stop(&mut self) -> bool {
         let mut buf = [0u8; 1];
         self.command_read(constant::DATA_STOP, &mut buf);
-        buf[0] & 0x80 == 1
+        buf[0] != 0
     }
 
     pub fn display_refresh(&mut self, blocking: bool) {
-        self.command(constant::DISPLAY_REFRESH, &[]);
+        self.command(constant::DISPLAY_REFRESH, []);
         if blocking {
             self.busy_wait();
         }
     }
 
-    pub fn data_start_transmission_2<'a, I: IntoIterator<Item = &'a u8>>(&mut self, data: I) {
+    pub fn data_start_transmission_2<I: IntoIterator<Item = u8>>(&mut self, data: I) {
         self.command(constant::DISPLAY_START_TRANSMISSION_2, data)
+    }
+
+    // pub fn vcom_lut(&mut self, )
+
+    pub fn w2w_lut(&mut self, setting: LutSettingGroup) {
+        let setting_bytes: [u8; 49] = setting.into();
+        self.command(constant::W2W_LUT, setting_bytes)
+    }
+
+    pub fn b2w_lut(&mut self, setting: LutSettingGroup) {
+        let setting_bytes: [u8; 49] = setting.into();
+        self.command(constant::B2W_LUT, setting_bytes)
+    }
+
+    pub fn w2b_lut(&mut self, setting: LutSettingGroup) {
+        let setting_bytes: [u8; 49] = setting.into();
+        self.command(constant::W2B_LUT, setting_bytes)
+    }
+
+    pub fn b2b_lut(&mut self, setting: LutSettingGroup) {
+        let setting_bytes: [u8; 49] = setting.into();
+        self.command(constant::B2B_LUT, setting_bytes)
     }
 
     pub fn pll_control(&mut self, setting: PllClockFrequency) {
         let setting_bytes: [u8; 1] = setting.into();
-        self.command(constant::PLL_CONTROL, &setting_bytes)
+        self.command(constant::PLL_CONTROL, setting_bytes)
     }
 
     pub fn temperature_sensor_calibration(&mut self) {}
@@ -451,11 +681,18 @@ where
 
     pub fn vcom_dc_setting(&mut self) {}
 
-    pub fn partial_window(&mut self) {}
+    pub fn partial_window(&mut self, setting: PartialWindow) {
+        let setting_bytes: [u8; 7] = setting.into();
+        self.command(constant::PARTIAL_WINDOW, setting_bytes);
+    }
 
-    pub fn partial_in(&mut self) {}
+    pub fn partial_in(&mut self) {
+        self.command(constant::PARTIAL_IN, []);
+    }
 
-    pub fn partial_out(&mut self) {}
+    pub fn partial_out(&mut self) {
+        self.command(constant::PARTIAL_OUT, []);
+    }
 
     pub fn program_mode(&mut self) {}
 

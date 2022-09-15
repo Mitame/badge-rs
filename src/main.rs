@@ -3,6 +3,7 @@
 //! This will blink an LED attached to GP25, which is the pin the Pico uses for the on-board LED.
 #![no_std]
 #![no_main]
+#![feature(slice_flatten)]
 
 use cortex_m_rt::entry;
 use cortex_m_semihosting::*;
@@ -37,6 +38,8 @@ mod uc8151;
 use crate::uc8151::Uc8151;
 
 use numtoa::NumToA;
+
+use self::uc8151::register::*;
 
 #[entry]
 fn main() -> ! {
@@ -123,14 +126,41 @@ fn main() -> ! {
 
     display.power_on(true);
     // PTOU
-    display.command(0x92, &[]);
+    display.command(0x92, []);
+    display.busy_wait();
+
+    // Blank the display
+    // DTM2
+    display.data_start_transmission_2((0..4736).map(|_| 0x00));
+    // DSP
+    let _has_stopped = display.data_stop();
+    display.display_refresh(true);
+
+    // Restart the power?
+    // display.power_off();
+    // display.power_on(true);
+
+    // Draw some stuff.
+    display.partial_in();
+    display.partial_window(PartialWindow {
+        horizontal_start_channel_bank: 5,
+        horizontal_end_channel_bank: 5,
+        vertical_start_line: 32,
+        vertical_end_line: 95,
+        partial_scan: true,
+    });
+    display.data_start_transmission_2((0..64).map(|_| 0xff));
+    let has_stopped = display.data_stop();
+    display.display_refresh(true);
+    if !has_stopped {
+        led_pin.set_high().unwrap();
+    }
+    // display.command(0x61, &[48, 0, 0x20]);
+    // display.command(0x65, &[40, 0, 0x0]);
+    // let revision = display.revision();
+
 
     loop {
-        display.busy_wait();
-        // DTM2
-        display.data_start_transmission_2((0..4736).map(|_| &0xff));
-        // DSP
-        let _has_stopped = display.data_stop();
-        display.display_refresh(true);
+
     }
 }
